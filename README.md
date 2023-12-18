@@ -1,8 +1,14 @@
 # mitm_test_proxy
 
+## status
+
+In progress.  Doesn't do anything useful yet.
+
+## What is this?
+
 This allows you to run a Man-In-The-Middle proxy that you will configure a
 test browser (perhaps with Capybara) to use.  You will be able to modify
-repsonses from 3rd parties and assert that requests where made.
+responses from 3rd parties and assert that requests where made.
 
 ```ruby
 mitm_test_proxy = MitmTestProxy.new
