@@ -41,3 +41,8 @@ There are other ruby libraries that have the same purpose as this.
 ### puffing-billy
 
 Works great in Ruby 2.7 and Puma 4.  Has a bug where it sends two Content-Length headers which will not work with Puma 6.  Is built on EventMachine, which sadly seems to be dead.  While using it we've seen Segfaults when stubbing some sites which has stopped us from testing what we wanted to.
+
+## notes
+
+maybe use webrick and get full hijack with this:
+<https://projects.theforeman.org/issues/26958>

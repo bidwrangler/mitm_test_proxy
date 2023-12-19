@@ -3,13 +3,78 @@
 require_relative "mitm_test_proxy/version"
 require_relative "mitm_test_proxy/proxy_rack_app"
 
+require 'puma'
+require 'puma/configuration'
+require 'puma/events'
 require 'webrick'
 require 'rack-proxy'
-require 'rackup/handler/webrick'
 require 'rack'
 require 'pp'
 
 module MitmTestProxy
+  class MitmTestProxy
+    attr_reader :port
+
+    def initialize
+      @stubs = []
+      @launcher_thread = nil
+      @server_ready = Queue.new
+      @server_shutdown = Queue.new
+      @logs = StringIO.new
+      @log_writer = Puma::LogWriter.new(@logs, @logs)
+      @port = nil
+
+      init_puma
+    end
+
+    def init_puma
+      # Register a custom action when the server starts
+      events = Puma::Events.new
+      events.register(:state) do |state|
+        if state == :running
+          @server_ready.push(true)
+          @port = @launcher.connected_ports[0]
+        end
+        @server_shutdown.push(true) if state == :done
+      end
+
+      puma_config = Puma::Configuration.new do |user_config, file_config, two|
+        user_config.bind "tcp://127.0.0.1:0"
+        user_config.app ProxyRackApp.new(@stubs)
+        user_config.supported_http_methods Puma::Const::SUPPORTED_HTTP_METHODS + ['CONNECT']
+      end
+
+      @launcher = Puma::Launcher.new(
+        puma_config,
+        events: events,
+        log_writer: @log_writer,
+      )
+    end
+
+    def host
+      'localhost'
+    end
+
+    def start
+      @launcher_thread = Thread.new do
+        @launcher.run
+      end
+      @server_ready.pop
+    end
+
+    def shutdown
+      @launcher.stop
+      if @launcher_thread
+        @launcher_thread.join
+      end
+    end
+
+    def stub(stub_url)
+      @stubs << Stub.new(stub_url)
+      return @stubs.last
+    end
+  end
+
   class Stub
     attr_reader :url, :text
 
@@ -19,52 +84,6 @@ module MitmTestProxy
 
     def and_return(text:)
       @text = text
-    end
-  end
-
-  class MitmTestProxy
-    def initialize
-      @stubs = []
-      @server_thread = nil
-      @server_queue = Queue.new
-      @log = WEBrick::Log.new(nil, WEBrick::Log::ERROR)
-      start_callback = Proc.new do
-        @server_queue << true
-      end
-      @server = WEBrick::HTTPServer.new(
-        Port: 0,
-        StartCallback: start_callback,
-        Logger: @log,
-        AccessLog: []
-      )
-      @server.mount '/', Rack::Handler::WEBrick, ProxyRackApp.new(@stubs)
-    end
-
-    def host
-      'localhost'
-    end
-
-    def port
-      return @server.config[:Port]
-    end
-
-    def start
-      @server_thread = Thread.new do
-        @server.start
-      end
-      @server_queue.pop
-    end
-
-    def shutdown
-      @server.shutdown
-      if @server_thread
-        @server_thread.join
-      end
-    end
-
-    def stub(stub_url)
-      @stubs << Stub.new(stub_url)
-      return @stubs.last
     end
   end
 
