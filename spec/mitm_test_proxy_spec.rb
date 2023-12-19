@@ -26,24 +26,23 @@ RSpec.describe MitmTestProxy do
     mitm_test_proxy.shutdown
   end
 
-  # pending "can stub a https site" do
-  #   pending("write https handling")
-  #   stubbed_text = "I'm not example.com!"
-  #   stub_url = 'https://www.example.com/'
-  #   mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
-  #   mitm_test_proxy.stub(stub_url).and_return(text: stubbed_text)
-  #   mitm_test_proxy.start
+  it "can stub a https site" do
+    stubbed_text = "I'm not https example.com!"
+    stub_url = 'https://www.example.com/'
+    mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
+    mitm_test_proxy.stub(stub_url).and_return(text: stubbed_text)
+    mitm_test_proxy.start
 
-  #   # Target URL
-  #   uri = URI(stub_url)
+    # Target URL
+    uri = URI(stub_url)
 
-  #   # Create a Net::HTTP object with proxy settings
-  #   http = Net::HTTP.new(uri.host, uri.port, mitm_test_proxy.host, mitm_test_proxy.port)
-  #   http.use_ssl = uri.scheme == 'https'
-  #   response = http.get(uri.request_uri)
+    # Create a Net::HTTP object with proxy settings
+    http = Net::HTTP.new(uri.host, uri.port, mitm_test_proxy.host, mitm_test_proxy.port)
+    http.use_ssl = uri.scheme == 'https'
+    response = http.get(uri.request_uri)
 
-  #   expect(response.body).to eq(stubbed_text)
+    expect(response.body).to eq(stubbed_text)
 
-  #   mitm_test_proxy.shutdown
-  # end
+    mitm_test_proxy.shutdown
+  end
 end

@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require_relative "mitm_test_proxy/version"
+require_relative "mitm_test_proxy/proxy_rack_app"
+
 require 'webrick'
 require 'rack-proxy'
 require 'rackup/handler/webrick'
@@ -8,7 +10,6 @@ require 'rack'
 require 'pp'
 
 module MitmTestProxy
-
   class Stub
     attr_reader :url, :text
 
@@ -18,26 +19,6 @@ module MitmTestProxy
 
     def and_return(text:)
       @text = text
-    end
-  end
-
-  class ProxyRackApp < Rack::Proxy
-    def initialize(stubs)
-      @stubs = stubs
-    end
-
-    def call(env)
-      @stubs.each do |stub|
-        if stub.url == env["REQUEST_URI"]
-          headers = {}
-          headers["content-type"] = "text/plain"
-          body = stub.text
-
-          return [200, headers, [body]]
-        end
-      end
-
-      super(env)
     end
   end
 
@@ -86,7 +67,6 @@ module MitmTestProxy
       return @stubs.last
     end
   end
-
 
   class Error < StandardError; end
   # Your code goes here...

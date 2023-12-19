@@ -2,7 +2,13 @@
 
 ## status
 
-In progress.  Doesn't do anything useful yet.
+In progress.  To be ready to replace puffing-billy we need:
+
+- [x] handle requests to http sites
+- [ ] return request to hosts not on the allowlist as empty html bodies
+- [ ] use list of regex, proc pairs to rewrite requests for http
+- [ ] handle CONNECT requests and create self-signed certificate for destination hosts
+- [ ] use list of regex, proc pairs to rewrite requests for https
 
 ## What is this?
 
