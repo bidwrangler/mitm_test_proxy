@@ -47,9 +47,15 @@ module MitmTestProxy
       @server_thread = nil
       @server_queue = Queue.new
       @log = WEBrick::Log.new(nil, WEBrick::Log::ERROR)
-      @server = WEBrick::HTTPServer.new(Port: port, StartCallback: Proc.new do
+      start_callback = Proc.new do
         @server_queue << true
-      end, Logger: @log, AccessLog: [])
+      end
+      @server = WEBrick::HTTPServer.new(
+        Port: 0,
+        StartCallback: start_callback,
+        Logger: @log,
+        AccessLog: []
+      )
       @server.mount '/', Rack::Handler::WEBrick, ProxyRackApp.new(@stubs)
     end
 
@@ -58,7 +64,7 @@ module MitmTestProxy
     end
 
     def port
-      return 8080
+      return @server.config[:Port]
     end
 
     def start
