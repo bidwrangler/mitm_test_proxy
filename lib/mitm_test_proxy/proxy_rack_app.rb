@@ -29,9 +29,9 @@ module MitmTestProxy
     private
 
     def handle_connect(env)
-      pp env
       hijack = env.fetch('rack.hijack')
       client_socket = hijack.call
+      raise "#{env.fetch('REQUEST_URI')}"
 
       ssl_socket = setup_ssl_socket(client_socket)
       ssl_socket.accept
@@ -43,6 +43,8 @@ module MitmTestProxy
     end
 
     def setup_ssl_socket(client_socket)
+
+
       ssl_context = OpenSSL::SSL::SSLContext.new
       ssl_context.cert = OpenSSL::X509::Certificate.new(File.read("path/to/cert.pem"))
       ssl_context.key = OpenSSL::PKey::RSA.new(File.read("path/to/key.pem"))

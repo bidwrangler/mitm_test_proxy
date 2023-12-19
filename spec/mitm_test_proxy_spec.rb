@@ -39,7 +39,13 @@ RSpec.describe MitmTestProxy do
     # Create a Net::HTTP object with proxy settings
     http = Net::HTTP.new(uri.host, uri.port, mitm_test_proxy.host, mitm_test_proxy.port)
     http.use_ssl = uri.scheme == 'https'
-    response = http.get(uri.request_uri)
+    begin
+      response = http.get(uri.request_uri)
+    rescue => e
+      puts "logs:"
+      puts mitm_test_proxy.logs.string
+      raise
+    end
 
     expect(response.body).to eq(stubbed_text)
 
