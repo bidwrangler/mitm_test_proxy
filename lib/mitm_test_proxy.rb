@@ -68,6 +68,7 @@ module MitmTestProxy
         puma_config,
         events: events,
         log_writer: @log_writer,
+        environment: 'development',
       )
     end
 

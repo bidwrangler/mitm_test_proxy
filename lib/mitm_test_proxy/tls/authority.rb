@@ -40,7 +40,7 @@ module MitmTestProxy
       write_file('ca.key', key.to_pem)
     end
 
-    # Write out the certifcate to file (PEM format) and give back the
+    # Write out the certificate to file (PEM format) and give back the
     # file path.
     def cert_file
       write_file('ca.crt', cert.to_pem)

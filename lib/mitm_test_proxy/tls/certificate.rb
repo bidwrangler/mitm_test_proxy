@@ -6,14 +6,14 @@ require 'fileutils'
 
 # originally from puffing-billy
 module MitmTestProxy
-  # This class is dedicated to the generation of a request certifcate for a
+  # This class is dedicated to the generation of a request certificate for a
   # given domain name. We have to generate for each handled connection a new
-  # request certifcate, due to the fact that each request has probably a
+  # request certificate, due to the fact that each request has probably a
   # different domain name which will be proxied. So we can't know of future
   # domain name we could include in the list of subject alternative names
   # which is required by modern browsers. (Chrome 58+)
   #
-  # We use our generated certifcate authority to sign any request certifcate,
+  # We use our generated certificate authority to sign any request certificate,
   # so a client can be prepared to trust us before a possible test scenario
   # starts.
   #
@@ -25,7 +25,7 @@ module MitmTestProxy
 
     attr_reader :key, :cert, :domain
 
-    # To generate a new request certifcate just pass the domain in and you
+    # To generate a new request certificate just pass the domain in and you
     # are ready to go.
     #
     # Example:
@@ -44,7 +44,7 @@ module MitmTestProxy
       write_file("request-#{domain}.key", key.to_pem)
     end
 
-    # Write out the certifcate to file (PEM format) and give back the
+    # Write out the certificate to file (PEM format) and give back the
     # file path.
     def cert_file
       write_file("request-#{domain}.crt", cert.to_pem)

@@ -18,6 +18,8 @@ RSpec.describe MitmTestProxy do
     uri = URI(stub_url)
 
     # Create a Net::HTTP object with proxy settings
+    expect(mitm_test_proxy.port).to be > 0
+
     http = Net::HTTP.new(uri.host, uri.port, mitm_test_proxy.host, mitm_test_proxy.port)
     response = http.get(uri.request_uri)
 
@@ -26,7 +28,7 @@ RSpec.describe MitmTestProxy do
     mitm_test_proxy.shutdown
   end
 
-  pending "can stub a https site" do
+  it "can stub a https site" do
     stubbed_text = "I'm not https example.com!"
     stub_url = 'https://www.example.com/'
     mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
@@ -39,6 +41,7 @@ RSpec.describe MitmTestProxy do
     # Create a Net::HTTP object with proxy settings
     http = Net::HTTP.new(uri.host, uri.port, mitm_test_proxy.host, mitm_test_proxy.port)
     http.use_ssl = uri.scheme == 'https'
+    http.verify_mode = OpenSSL::SSL::VERIFY_NONE
     begin
       response = http.get(uri.request_uri)
     rescue => e

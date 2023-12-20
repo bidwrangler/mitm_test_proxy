@@ -31,51 +31,74 @@ module MitmTestProxy
     def handle_connect(env)
       hijack = env.fetch('rack.hijack')
       client_socket = hijack.call
-      raise "#{env.fetch('REQUEST_URI')}"
+      client_socket.write("HTTP/1.1 200 Connection Established\r\n\r\n")
 
-      ssl_socket = setup_ssl_socket(client_socket)
+      hostname = env.fetch('REQUEST_URI').split(':').first
+      ssl_socket = setup_ssl_socket(hostname, client_socket)
+
       ssl_socket.accept
 
-      # Process the request over the SSL socket
-      process_request(ssl_socket)
+      parser = Puma::HttpParser.new
+
+      request_env = {}
+      while !parser.finished?
+        parser.execute(request_env, ssl_socket.readpartial(1024), 0)
+      end
+
+      if request_env.length == 0
+        raise "request_env is empty"
+      end
+
+      request_env["REQUEST_URI"] = "https://#{hostname}#{request_env.fetch('REQUEST_URI')}"
+      response = call(request_env)
+
+      write_response_to(ssl_socket, response)
 
       [200, {}, []] # Return a successful response
     end
 
-    def setup_ssl_socket(client_socket)
+    def write_response_to(socket, response)
+      status, headers, body = response
 
+      headers["content-length"] = body.join.bytesize
+
+      # Format the status line
+      http_status_line = "HTTP/1.1 #{status} #{Rack::Utils::HTTP_STATUS_CODES[status]}\r\n"
+
+      # Format the headers
+      http_headers = headers.map { |key, value| "#{key}: #{value}\r\n" }.join
+
+      # Format the body
+      http_body = body.join
+
+      # Combine everything into a full HTTP response
+      http_response = "#{http_status_line}#{http_headers}\r\n#{http_body}"
+
+      socket.write(http_response)
+    end
+
+    def setup_ssl_socket(hostname, client_socket)
+      keys = certificate_chain(hostname)
+
+      certs = OpenSSL::X509::Certificate.load_file(keys[:cert_chain_file])
+      key = OpenSSL::PKey::RSA.new(File.read(keys[:private_key_file]))
 
       ssl_context = OpenSSL::SSL::SSLContext.new
-      ssl_context.cert = OpenSSL::X509::Certificate.new(File.read("path/to/cert.pem"))
-      ssl_context.key = OpenSSL::PKey::RSA.new(File.read("path/to/key.pem"))
+      ssl_context.add_certificate(certs[0], key, certs[1..])
 
       OpenSSL::SSL::SSLSocket.new(client_socket, ssl_context).tap do |socket|
         socket.sync_close = true
       end
     end
 
-    def handle_socket_request(socket, rack_app)
-      request = WEBrick::HTTPRequest.new(WEBrick::Config::HTTP)
-      request.parse(socket)
+    def certificate_chain(url)
+      domain = url.split(':').first
+      ca = ::MitmTestProxy.certificate_authority.cert
+      cert = ::MitmTestProxy::Certificate.new(domain)
+      chain = ::MitmTestProxy::CertificateChain.new(domain, cert.cert, ca)
 
-      env = {
-        "REQUEST_METHOD" => request.request_method,
-        "SCRIPT_NAME" => "",
-        "PATH_INFO" => request.path,
-        "QUERY_STRING" => request.query_string,
-        "SERVER_NAME" => "localhost",
-        "SERVER_PORT" => "80",
-        "rack.input" => StringIO.new(request.body.to_s),
-        # ... additional Rack env variables as needed
-      }
-
-      status, headers, body = rack_app.call(env)
-
-      response = WEBrick::HTTPResponse.new(WEBrick::Config::HTTP)
-      response.status = status
-      response.body = body.join
-      headers.each { |key, value| response[key] = value }
-      response.send_response(socket)
+      { private_key_file: cert.key_file,
+        cert_chain_file: chain.file }
     end
   end
 end

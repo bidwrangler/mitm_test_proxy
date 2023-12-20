@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "mitm_test_proxy"
-require "pry"
+require 'pry-nav'
 
 def test_path(path)
   File.join(File.dirname(__FILE__), path)
