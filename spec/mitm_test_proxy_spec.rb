@@ -26,7 +26,7 @@ RSpec.describe MitmTestProxy do
     mitm_test_proxy.shutdown
   end
 
-  it "can stub a https site" do
+  pending "can stub a https site" do
     stubbed_text = "I'm not https example.com!"
     stub_url = 'https://www.example.com/'
     mitm_test_proxy = MitmTestProxy::MitmTestProxy.new

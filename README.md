@@ -6,7 +6,6 @@ In progress.  To be ready to replace puffing-billy we need:
 
 - [ ] test the most recent release of puffing-billy/em doesn't fix the bug
 - [x] handle requests to http sites
-- [ ] return request to hosts not on the allowlist as empty html bodies
 - [x] use list of string, string pairs to replace the response for http
 - [ ] use list of regex, proc pairs to rewrite requests for http
 - [ ] use list of regex, proc pairs to rewrite requests for https
@@ -14,6 +13,7 @@ In progress.  To be ready to replace puffing-billy we need:
   - [ ] create self signed certificates on demand
   - [ ] trigger creation on TLS handshake
   - [ ] parse http request and pass to rack-proxy
+- [ ] return request to hosts not on the allowlist as empty html bodies
 
 ## What is this?
 

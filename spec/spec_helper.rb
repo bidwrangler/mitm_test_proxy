@@ -1,6 +1,11 @@
 # frozen_string_literal: true
 
 require "mitm_test_proxy"
+require "pry"
+
+def test_path(path)
+  File.join(File.dirname(__FILE__), path)
+end
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure

@@ -2,7 +2,10 @@
 
 require_relative "mitm_test_proxy/version"
 require_relative "mitm_test_proxy/proxy_rack_app"
-require_relative "mitm_test_proxy/certificate_manager"
+require_relative "mitm_test_proxy/tls/certificate_helpers"
+require_relative "mitm_test_proxy/tls/certificate"
+require_relative "mitm_test_proxy/tls/certificate_chain"
+require_relative "mitm_test_proxy/tls/authority"
 
 require 'puma'
 require 'puma/configuration'
@@ -13,6 +16,21 @@ require 'rack'
 require 'pp'
 
 module MitmTestProxy
+  class Config
+    attr_accessor :certs_path
+
+    def initialize
+      @certs_path = File.join(Dir.tmpdir, 'mitm_test_proxy', 'certs')
+    end
+  end
+  def self.config
+    @config ||= Config.new
+  end
+
+  def self.certificate_authority
+    @certificate_authority ||= ::MitmTestProxy::Authority.new
+  end
+
   class MitmTestProxy
     attr_reader :port
     attr_reader :logs
@@ -25,17 +43,8 @@ module MitmTestProxy
       @logs = StringIO.new
       @log_writer = Puma::LogWriter.new(@logs, @logs)
       @port = nil
-      @certificate_path = init_certs
 
       init_puma
-    end
-
-    def init_certs
-      certs_dir = Dir.new('certs')
-      if !certs_dir.exist?
-        certs_dir.mkdir
-      end
-      certs_dir
     end
 
     def init_puma
