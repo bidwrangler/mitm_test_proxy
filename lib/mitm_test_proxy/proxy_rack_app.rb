@@ -8,6 +8,11 @@ module MitmTestProxy
       @stubs = stubs
     end
 
+    def log(msg)
+      return unless ::MitmTestProxy.config.log_requests
+      puts msg
+    end
+
     def call(env)
       if env.fetch('REQUEST_METHOD') == 'CONNECT'
         return handle_connect(env)
@@ -15,13 +20,12 @@ module MitmTestProxy
 
       @stubs.each do |stub|
         if stub.match?(env.fetch("REQUEST_URI"))
-          if ::MitmTestProxy.config.log_requests
-            puts "MitmTestProxy Stubbing request: #{env.fetch('REQUEST_URI')}"
-          end
+          log("MitmTestProxy Stubbing request: #{env.fetch('REQUEST_URI')}")
           return stub.call(env)
         end
       end
 
+      log("MitmTestProxy proxying request: #{env.fetch('REQUEST_URI')}")
       super(env)
     end
 
