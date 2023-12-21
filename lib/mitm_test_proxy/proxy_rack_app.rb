@@ -79,13 +79,26 @@ module MitmTestProxy
       end
     end
 
+    def load_certificate_chain(filepath)
+      if OpenSSL::X509::Certificate.method_defined?(:load_file)
+        # ruby 3
+        return OpenSSL::X509::Certificate.load_file(filepath)
+      end
+      # ruby 2
+      certificate_chain = File.read(filepath)
+      certificates = certificate_chain.scan(/-----BEGIN CERTIFICATE-----.+?-----END CERTIFICATE-----/m)
+      certs = certificates.map { |cert| OpenSSL::X509::Certificate.new(cert) }
+    end
+
     def setup_ssl_socket(hostname, client_socket)
       keys = certificate_chain(hostname)
 
-      certs = OpenSSL::X509::Certificate.load_file(keys[:cert_chain_file])
       key = OpenSSL::PKey::RSA.new(File.read(keys[:private_key_file]))
+      certs = load_certificate_chain(keys[:cert_chain_file])
 
       ssl_context = OpenSSL::SSL::SSLContext.new
+      ssl_context.ssl_version = :TLSv1_2
+
       ssl_context.add_certificate(certs[0], key, certs[1..])
 
       OpenSSL::SSL::SSLSocket.new(client_socket, ssl_context).tap do |socket|

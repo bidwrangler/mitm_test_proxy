@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'net/http'
+require 'open3'
 
 RSpec.describe MitmTestProxy do
   it "has a version number" do
@@ -107,5 +108,24 @@ RSpec.describe MitmTestProxy do
     expect(response.code).to eq("200")
     expect(response.header["Content-type"]).to eq("text/plain")
     expect(response.body.length).to eq(File.size(__FILE__))
+  end
+
+  it "can be used with curl" do
+    stub_url = 'https://www.example.com/thisfile.rb'
+
+    mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
+    mitm_test_proxy.start
+
+
+    command = "curl --insecure --proxy http://#{mitm_test_proxy.host}:#{mitm_test_proxy.port} https://httpbin.org/get"
+
+    stdout_str, stderr_str, status = Open3.capture3(command)
+    if status.exitstatus != 0
+      puts "Standard Output: #{stdout_str}"
+      puts "Standard Error: #{stderr_str}"
+      puts "Exit Status: #{status.exitstatus}"
+    end
+
+    expect(status.exitstatus).to eq(0)
   end
 end

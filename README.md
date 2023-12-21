@@ -14,7 +14,8 @@ In progress.  To be ready to replace puffing-billy we need:
   - [x] create self signed certificates on demand
   - [x] trigger creation on TLS handshake
   - [x] parse http request and pass to rack-proxy
-- [ ] return request to hosts not on the allowlist as empty html bodies
+- [ ] write test that uses curl to proxy to <https://httpbin.org/get> and fix
+- [ ] write test that uses chrome to proxy to something https
 
 ## What is this?
 
