@@ -4,7 +4,6 @@ PATH
     mitm_test_proxy (0.1.0)
       puma (~> 6.4.0)
       rack-proxy (~> 0.7.7)
-      rackup (~> 2.1.0)
 
 GEM
   remote: https://rubygems.org/
@@ -31,9 +30,6 @@ GEM
     rack (3.0.8)
     rack-proxy (0.7.7)
       rack
-    rackup (2.1.0)
-      rack (>= 3)
-      webrick (~> 1.8)
     rainbow (3.1.1)
     rake (13.1.0)
     regexp_parser (2.8.3)
@@ -66,7 +62,6 @@ GEM
       parser (>= 3.2.1.0)
     ruby-progressbar (1.13.0)
     unicode-display_width (2.5.0)
-    webrick (1.8.1)
 
 PLATFORMS
   arm64-darwin-22

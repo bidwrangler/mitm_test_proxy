@@ -35,7 +35,6 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "puma", "~> 6.4.0"
   spec.add_dependency "rack-proxy", "~> 0.7.7"
-  spec.add_dependency "rackup", "~> 2.1.0"
 
   spec.add_development_dependency "rspec-core"
   spec.add_development_dependency "pry"

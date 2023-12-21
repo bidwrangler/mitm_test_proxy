@@ -11,7 +11,6 @@ require_relative "mitm_test_proxy/file_streamer"
 require 'puma'
 require 'puma/configuration'
 require 'puma/events'
-require 'webrick'
 require 'rack-proxy'
 require 'rack'
 require 'pp'

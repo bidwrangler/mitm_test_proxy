@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'date'
+
 RSpec.describe MitmTestProxy::Authority do
   let(:auth1) { MitmTestProxy::Authority.new }
   let(:auth2) { MitmTestProxy::Authority.new }
