@@ -15,6 +15,9 @@ module MitmTestProxy
 
       @stubs.each do |stub|
         if stub.match?(env.fetch("REQUEST_URI"))
+          if ::MitmTestProxy.config.log_requests
+            puts "MitmTestProxy Stubbing request: #{env.fetch('REQUEST_URI')}"
+          end
           return stub.call(env)
         end
       end

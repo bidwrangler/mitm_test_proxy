@@ -18,9 +18,11 @@ require 'pp'
 module MitmTestProxy
   class Config
     attr_accessor :certs_path
+    attr_accessor :log_requests
 
     def initialize
       @certs_path = File.join(Dir.tmpdir, 'mitm_test_proxy', 'certs')
+      @log_requests = ENV.key?('MITM_TEST_PROXY_LOG_REQUESTS')
     end
   end
 
