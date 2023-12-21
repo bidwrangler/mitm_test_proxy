@@ -15,6 +15,7 @@ module MitmTestProxy
 
     def call(env)
       if env.fetch('REQUEST_METHOD') == 'CONNECT'
+        log("MitmTestProxy handling CONNECT request: #{env.fetch('REQUEST_URI')}")
         return handle_connect(env)
       end
 
