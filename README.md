@@ -8,8 +8,8 @@ In progress.  To be ready to replace puffing-billy we need:
 (yes it still does)
 - [x] handle requests to http sites
 - [x] use list of string, string pairs to replace the response for http
-- [ ] use list of regex, proc pairs to rewrite requests for http
-- [ ] use list of regex, proc pairs to rewrite requests for https
+- [x] use list of regex, proc pairs to rewrite requests for http
+- [x] use list of regex, proc pairs to rewrite requests for https
   - [x] handle CONNECT requests
   - [x] create self signed certificates on demand
   - [x] trigger creation on TLS handshake

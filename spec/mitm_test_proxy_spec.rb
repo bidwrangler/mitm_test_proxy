@@ -50,8 +50,62 @@ RSpec.describe MitmTestProxy do
       raise
     end
 
+    expect(response.code).to eq("200")
     expect(response.body).to eq(stubbed_text)
 
     mitm_test_proxy.shutdown
+  end
+
+  # just like puffing-billy
+  it "can stub with a regex and proc" do
+    stub_url = 'https://www.example.com/hello.txt'
+    stubbed_text = "hello world"
+
+    mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
+    mitm_test_proxy.stub(/hello.txt/).and_return(Proc.new { |env|
+      headers = {
+        "Content-type" => "text/plain",
+        "Access-Control-Allow-Origin" => "*",
+      }
+      [200, headers, [stubbed_text]]
+    })
+    mitm_test_proxy.start
+
+    # Target URL
+    uri = URI(stub_url)
+
+    # Create a Net::HTTP object with proxy settings
+    http = Net::HTTP.new(uri.host, uri.port, mitm_test_proxy.host, mitm_test_proxy.port)
+    response = http.get(uri.request_uri)
+
+    expect(response.code).to eq("200")
+
+    expect(response.body).to eq(stubbed_text)
+    expect(response.header["Content-type"]).to eq("text/plain")
+    expect(response.header["access-control-allow-origin"]).to eq("*")
+  end
+
+  it "can stub and stream a file" do
+    stub_url = 'https://www.example.com/thisfile.rb'
+
+    mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
+    mitm_test_proxy.stub(/thisfile.rb/).and_return(Proc.new { |env|
+      headers = {
+        "Content-type" => "text/plain",
+      }
+      [200, headers, MitmTestProxy::FileStreamer.new(__FILE__)]
+    })
+    mitm_test_proxy.start
+
+    # Target URL
+    uri = URI(stub_url)
+
+    # Create a Net::HTTP object with proxy settings
+    http = Net::HTTP.new(uri.host, uri.port, mitm_test_proxy.host, mitm_test_proxy.port)
+    response = http.get(uri.request_uri)
+
+    expect(response.code).to eq("200")
+    expect(response.header["Content-type"]).to eq("text/plain")
+    expect(response.body.length).to eq(File.size(__FILE__))
   end
 end

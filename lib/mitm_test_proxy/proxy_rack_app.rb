@@ -14,12 +14,8 @@ module MitmTestProxy
       end
 
       @stubs.each do |stub|
-        if stub.url == env.fetch("REQUEST_URI")
-          headers = {}
-          headers["content-type"] = "text/plain"
-          body = stub.text
-
-          return [200, headers, [body]]
+        if stub.match?(env.fetch("REQUEST_URI"))
+          return stub.call(env)
         end
       end
 

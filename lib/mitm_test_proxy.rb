@@ -6,6 +6,7 @@ require_relative "mitm_test_proxy/tls/certificate_helpers"
 require_relative "mitm_test_proxy/tls/certificate"
 require_relative "mitm_test_proxy/tls/certificate_chain"
 require_relative "mitm_test_proxy/tls/authority"
+require_relative "mitm_test_proxy/file_streamer"
 
 require 'puma'
 require 'puma/configuration'
@@ -23,6 +24,7 @@ module MitmTestProxy
       @certs_path = File.join(Dir.tmpdir, 'mitm_test_proxy', 'certs')
     end
   end
+
   def self.config
     @config ||= Config.new
   end
@@ -97,14 +99,36 @@ module MitmTestProxy
   end
 
   class Stub
-    attr_reader :url, :text
+    attr_reader :url, :response
 
+    # stub_url is a string or regex to match on the url
     def initialize(stub_url)
       @url = stub_url
     end
 
-    def and_return(text:)
-      @text = text
+    def match?(url)
+      if @url.kind_of?(String)
+        return @url == url
+      end
+      if @url.kind_of?(Regexp)
+        return @url.match?(url)
+      end
+      raise RuntimeError.new("stub url is not a string or regex")
+    end
+
+    def and_return(response)
+      @response = response
+    end
+
+    def call(env)
+      if @response.kind_of?(Hash) && response.key?(:text)
+        return [200, {}, [@response[:text]]]
+      end
+      if @response.kind_of?(Proc)
+        return @response.call(env)
+      end
+
+      raise RuntimeError.new("stub response is not a hash or proc")
     end
   end
 
