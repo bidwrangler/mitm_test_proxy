@@ -50,7 +50,8 @@ module MitmTestProxy
       end
 
       request_env["REQUEST_URI"] = "https://#{hostname}#{request_env.fetch('REQUEST_URI')}"
-      response = call(request_env)
+
+      response = Rack::Chunked.new(self).call(request_env)
 
       write_response_to(ssl_socket, response)
 
@@ -60,21 +61,19 @@ module MitmTestProxy
     def write_response_to(socket, response)
       status, headers, body = response
 
-      headers["content-length"] = body.join.bytesize
-
+      puts headers.inspect
       # Format the status line
       http_status_line = "HTTP/1.1 #{status} #{Rack::Utils::HTTP_STATUS_CODES[status]}\r\n"
 
+      socket.write(http_status_line)
       # Format the headers
       http_headers = headers.map { |key, value| "#{key}: #{value}\r\n" }.join
+      socket.write(http_headers)
+      socket.write("\r\n")
 
-      # Format the body
-      http_body = body.join
-
-      # Combine everything into a full HTTP response
-      http_response = "#{http_status_line}#{http_headers}\r\n#{http_body}"
-
-      socket.write(http_response)
+      body.each do |chunk|
+        socket.write(chunk)
+      end
     end
 
     def setup_ssl_socket(hostname, client_socket)
