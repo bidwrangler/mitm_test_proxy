@@ -61,7 +61,6 @@ module MitmTestProxy
     def write_response_to(socket, response)
       status, headers, body = response
 
-      puts headers.inspect
       # Format the status line
       http_status_line = "HTTP/1.1 #{status} #{Rack::Utils::HTTP_STATUS_CODES[status]}\r\n"
 

@@ -52,8 +52,8 @@ module MitmTestProxy
       events = Puma::Events.new
       events.register(:state) do |state|
         if state == :running
-          @server_ready.push(true)
           @port = @launcher.connected_ports[0]
+          @server_ready.push(true)
         end
         @server_shutdown.push(true) if state == :done
       end
