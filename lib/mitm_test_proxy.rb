@@ -62,13 +62,13 @@ module MitmTestProxy
         user_config.bind "tcp://127.0.0.1:0"
         user_config.app ProxyRackApp.new(@stubs)
         user_config.supported_http_methods Puma::Const::SUPPORTED_HTTP_METHODS + ['CONNECT']
+        user_config.environment 'development'
       end
 
       @launcher = Puma::Launcher.new(
         puma_config,
         events: events,
         log_writer: @log_writer,
-        environment: 'development',
       )
     end
 
