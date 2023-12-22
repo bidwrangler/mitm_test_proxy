@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'net/http'
+require 'openssl'
 require 'open3'
 
 RSpec.describe MitmTestProxy do
@@ -108,6 +109,44 @@ RSpec.describe MitmTestProxy do
     expect(response.code).to eq("200")
     expect(response.header["Content-type"]).to eq("text/plain")
     expect(response.body.length).to eq(File.size(__FILE__))
+  end
+
+  it "can be used for multiple https requests to the same host in the same connection" do
+    stubbed_text = "I'm not https example.com!"
+    stub_url = 'https://www.example.com/'
+    mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
+    mitm_test_proxy.stub(stub_url).and_return(text: stubbed_text)
+    mitm_test_proxy.start
+
+    # Target URL
+    uri = URI(stub_url)
+
+    verify_callback =  lambda do |verify_result, cert|
+      verify_result = OpenSSL::SSL::VERIFY_PEER
+      if cert.issuer.to_s == cert.subject.to_s
+          verify_result = OpenSSL::SSL::VERIFY_NONE
+      end
+      verify_result
+    end
+
+    http_options = {
+      verify_mode: OpenSSL::SSL::VERIFY_NONE,
+      verify_callback: verify_callback,
+      use_ssl: true,
+    }
+    Net::HTTP.start(uri.host, uri.port, mitm_test_proxy.host, mitm_test_proxy.port, http_options) do |http|
+      request1 = Net::HTTP::Get.new(uri)
+      response1 = http.request(request1)
+      expect(response1.code).to eq("200")
+      expect(response1.body).to eq(stubbed_text)
+
+      request2 = Net::HTTP::Get.new(uri)
+      response2 = http.request(request2)
+      expect(response2.code).to eq("200")
+      expect(response2.body).to eq(stubbed_text)
+    end
+
+    mitm_test_proxy.shutdown
   end
 
   it "can be used with curl" do

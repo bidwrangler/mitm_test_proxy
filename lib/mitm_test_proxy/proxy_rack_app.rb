@@ -42,22 +42,24 @@ module MitmTestProxy
 
       ssl_socket.accept
 
-      parser = Puma::HttpParser.new
+      loop do
+        parser = Puma::HttpParser.new
 
-      request_env = {}
-      while !parser.finished?
-        parser.execute(request_env, ssl_socket.readpartial(1024), 0)
+        request_env = {}
+        while !parser.finished?
+          parser.execute(request_env, ssl_socket.readpartial(1024), 0)
+        end
+
+        if request_env.length == 0
+          raise "request_env is empty"
+        end
+
+        request_env["REQUEST_URI"] = "https://#{hostname}#{request_env.fetch('REQUEST_URI')}"
+
+        response = Rack::Chunked.new(self).call(request_env)
+
+        write_response_to(ssl_socket, response)
       end
-
-      if request_env.length == 0
-        raise "request_env is empty"
-      end
-
-      request_env["REQUEST_URI"] = "https://#{hostname}#{request_env.fetch('REQUEST_URI')}"
-
-      response = Rack::Chunked.new(self).call(request_env)
-
-      write_response_to(ssl_socket, response)
 
       [200, {}, []] # Return a successful response
     end
@@ -97,7 +99,7 @@ module MitmTestProxy
       certs = load_certificate_chain(keys[:cert_chain_file])
 
       ssl_context = OpenSSL::SSL::SSLContext.new
-      ssl_context.ssl_version = :TLSv1_2
+      ssl_context.min_version = OpenSSL::SSL::TLS1_2_VERSION
 
       ssl_context.add_certificate(certs[0], key, certs[1..])
 
@@ -106,14 +108,16 @@ module MitmTestProxy
       end
     end
 
-    def certificate_chain(url)
-      domain = url.split(':').first
+    def certificate_chain(hostname)
+      domain = hostname.split(':').first
       ca = ::MitmTestProxy.certificate_authority.cert
       cert = ::MitmTestProxy::Certificate.new(domain)
       chain = ::MitmTestProxy::CertificateChain.new(domain, cert.cert, ca)
 
-      { private_key_file: cert.key_file,
-        cert_chain_file: chain.file }
+      {
+        private_key_file: cert.key_file,
+        cert_chain_file: chain.file,
+      }
     end
   end
 end

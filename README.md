@@ -2,7 +2,7 @@
 
 ## status
 
-In progress.  To be ready to replace puffing-billy we need:
+Looks like it's ready, but when I use it in my project I get error about protocol versions.
 
 - [x] test the most recent release of puffing-billy/em doesn't fix the bug
 (yes it still does)
@@ -14,8 +14,9 @@ In progress.  To be ready to replace puffing-billy we need:
   - [x] create self signed certificates on demand
   - [x] trigger creation on TLS handshake
   - [x] parse http request and pass to rack-proxy
-- [ ] write test that uses curl to proxy to <https://httpbin.org/get> and fix
+- [x] write test that uses curl to proxy to <https://httpbin.org/get> and fix
 - [ ] write test that uses chrome to proxy to something https
+- [x] write spec that makes multiple https requests to the same host
 
 ## What is this?
 
@@ -29,19 +30,22 @@ responses from 3rd parties and assert that requests where made.
 mitm_test_proxy = MitmTestProxy.new
 # intercept a request to a specific url and return what we want
 mitm_test_proxy.stub('http://www.google.com/').and_return(text: "I'm not Google!")
-# allow requests to be proxied
-mitm_test_proxy.allowlist << 'www.example.com'
+mitm_test_proxy.stub('https://example.com/').and_return(Proc.new {|env| 
+  [200, {'content-type' => 'text/plain'}, []]
+})
 
 # start it in another thread, will block until it's running
 mitm_test_proxy.start
 
-# later after test
+# will start on a random free port, so you'll need to get the port number after it's running
+puts mitm_test_proxy.port
 
+# later after test
 # shutdown the server thread, will block until the thread is done
 mitm_test_proxy.shutdown
 ```
 
-This gem is based on puma.
+This gem is based on puma.  Some code for TLS certificate creation was copied from puffing-billy.
 
 ## Alternatives that where considered
 
