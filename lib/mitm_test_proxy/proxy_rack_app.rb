@@ -3,9 +3,10 @@
 require 'rack-proxy'
 
 module MitmTestProxy
-  class ProxyRackApp < Rack::Proxy
+  class ProxyRackApp
     def initialize(stubs)
       @stubs = stubs
+      @proxy = Rack::Proxy.new(self)
     end
 
     def log(msg)
@@ -27,7 +28,7 @@ module MitmTestProxy
       end
 
       log("MitmTestProxy proxying request: #{env.fetch('REQUEST_URI')}")
-      super(env)
+      @proxy.call(env)
     end
 
     private
