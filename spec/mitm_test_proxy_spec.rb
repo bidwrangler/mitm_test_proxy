@@ -87,6 +87,27 @@ RSpec.describe MitmTestProxy do
     expect(response.header["access-control-allow-origin"]).to eq("*")
   end
 
+  it "will recover from an error while proxying and send the error to the ssl socket" do
+    stub_url = 'https://www.example.com/hello.txt'
+    stubbed_text = "hello world"
+
+    mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
+    mitm_test_proxy.start
+    allow_any_instance_of(Rack::Proxy).to receive(:call).and_raise("error while proxying")
+
+    # Target URL
+    uri = URI(stub_url)
+
+    # Create a Net::HTTP object with proxy settings
+    http = Net::HTTP.new(uri.host, uri.port, mitm_test_proxy.host, mitm_test_proxy.port)
+    response = http.get(uri.request_uri)
+
+    expect(response.code).to eq("500")
+
+    expect(response.body).to start_with("Puma caught this error: error while proxying (RuntimeError)")
+  end
+
+
   it "can stub and stream a file" do
     stub_url = 'https://www.example.com/thisfile.rb'
 
@@ -149,12 +170,9 @@ RSpec.describe MitmTestProxy do
     mitm_test_proxy.shutdown
   end
 
-  it "can be used with curl" do
-    stub_url = 'https://www.example.com/thisfile.rb'
-
+  it "can be used with curl https" do
     mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
     mitm_test_proxy.start
-
 
     command = "curl --insecure --proxy http://#{mitm_test_proxy.host}:#{mitm_test_proxy.port} https://httpbin.org/get"
 

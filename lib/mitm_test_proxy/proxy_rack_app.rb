@@ -39,26 +39,31 @@ module MitmTestProxy
       client_socket.write("HTTP/1.1 200 Connection Established\r\n\r\n")
 
       hostname = env.fetch('REQUEST_URI').split(':').first
-      ssl_socket = setup_ssl_socket(hostname, client_socket)
+      begin
+        ssl_socket = setup_ssl_socket(hostname, client_socket)
 
-      ssl_socket.accept
+        ssl_socket.accept
 
-      loop do
-        parser = Puma::HttpParser.new
+        loop do
+          parser = Puma::HttpParser.new
 
-        request_env = {}
-        while !parser.finished?
-          parser.execute(request_env, ssl_socket.readpartial(1024), 0)
+          request_env = {}
+          while !parser.finished?
+            parser.execute(request_env, ssl_socket.readpartial(1024), 0)
+          end
+
+          if request_env.length == 0
+            raise "request_env is empty"
+          end
+
+          request_env["REQUEST_URI"] = "https://#{hostname}#{request_env.fetch('REQUEST_URI')}"
+
+          response = Rack::Chunked.new(self).call(request_env)
+
+          write_response_to(ssl_socket, response)
         end
-
-        if request_env.length == 0
-          raise "request_env is empty"
-        end
-
-        request_env["REQUEST_URI"] = "https://#{hostname}#{request_env.fetch('REQUEST_URI')}"
-
-        response = Rack::Chunked.new(self).call(request_env)
-
+      rescue => error
+        response = [500, {}, [error.message]]
         write_response_to(ssl_socket, response)
       end
 
