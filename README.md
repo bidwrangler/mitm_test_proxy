@@ -17,6 +17,9 @@ Looks like it's ready, but when I use it in my project I get error about protoco
 - [x] write test that uses curl to proxy to <https://httpbin.org/get> and fix
 - [ ] write test that uses chrome to proxy to something https
 - [x] write spec that makes multiple https requests to the same host
+- [x] use mutex around certificate creation to stop two requests creating a cert for the same domain
+- [ ] allow to remove a stub
+- [ ] report what domains where proxyied so far
 
 ## What is this?
 

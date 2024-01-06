@@ -16,6 +16,22 @@ RSpec.describe MitmTestProxy::Authority do
     end
   end
 
+  context('#keys_for') do
+    it 'generates a new certificate for each domain' do
+      keys = auth1.keys_for('example.com')
+      expect(keys).to have_key(:private_key_file)
+      expect(keys).to have_key(:cert_chain_file)
+      expect(File).to exist(keys[:private_key_file])
+      expect(File).to exist(keys[:cert_chain_file])
+    end
+
+    it 'generates a new certificate only once' do
+      allow(auth1).to receive(:create_certificate_for).and_call_original.exactly(1).times
+      keys = auth1.keys_for('example.com')
+      keys = auth1.keys_for('example.com')
+    end
+  end
+
   context('#cert') do
     it 'generates a new certificate each time' do
       expect(auth1.cert).not_to be(auth2.cert)

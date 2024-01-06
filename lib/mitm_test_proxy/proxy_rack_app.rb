@@ -110,7 +110,7 @@ module MitmTestProxy
     end
 
     def setup_ssl_socket(hostname, client_socket)
-      keys = certificate_chain(hostname)
+      keys = ::MitmTestProxy.certificate_authority.keys_for(hostname)
 
       key = OpenSSL::PKey::RSA.new(File.read(keys[:private_key_file]))
       certs = load_certificate_chain(keys[:cert_chain_file])
@@ -123,18 +123,6 @@ module MitmTestProxy
       OpenSSL::SSL::SSLSocket.new(client_socket, ssl_context).tap do |socket|
         socket.sync_close = true
       end
-    end
-
-    def certificate_chain(hostname)
-      domain = hostname.split(':').first
-      ca = ::MitmTestProxy.certificate_authority.cert
-      cert = ::MitmTestProxy::Certificate.new(domain)
-      chain = ::MitmTestProxy::CertificateChain.new(domain, cert.cert, ca)
-
-      {
-        private_key_file: cert.key_file,
-        cert_chain_file: chain.file,
-      }
     end
   end
 end
