@@ -206,4 +206,31 @@ RSpec.describe MitmTestProxy do
 
     expect(status.exitstatus).to eq(0)
   end
+
+  it "can remove a stub" do
+    mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
+
+    base_stub_url = %r{http://www.example.com/}
+    base_stubbed_text = "I'm not example.com!"
+    mitm_test_proxy.stub(base_stub_url).and_return(text: base_stubbed_text)
+
+    specific_stubbed_text = "I'm a goat!"
+    specific_stub_url = 'http://www.example.com/goat.txt'
+    mitm_test_proxy.stub(specific_stub_url, index: 0).and_return(text: specific_stubbed_text)
+
+    mitm_test_proxy.start
+
+    # Target URL
+    uri = URI(specific_stub_url)
+
+    http = Net::HTTP.new(uri.host, uri.port, mitm_test_proxy.host, mitm_test_proxy.port)
+    response = http.get(uri.request_uri)
+    expect(response.body).to eq(specific_stubbed_text)
+
+    mitm_test_proxy.remove_stub(specific_stub_url)
+    response = http.get(uri.request_uri)
+    expect(response.body).to eq(base_stubbed_text)
+
+    mitm_test_proxy.shutdown
+  end
 end

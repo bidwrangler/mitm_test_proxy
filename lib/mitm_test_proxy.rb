@@ -93,9 +93,14 @@ module MitmTestProxy
       end
     end
 
-    def stub(stub_url)
-      @stubs << Stub.new(stub_url)
-      return @stubs.last
+    def stub(stub_url, index: -1)
+      stub = Stub.new(stub_url)
+      @stubs.insert(index, stub)
+      stub
+    end
+
+    def remove_stub(stub_url)
+      @stubs.delete_if { |stub| stub.url == stub_url }
     end
   end
 
