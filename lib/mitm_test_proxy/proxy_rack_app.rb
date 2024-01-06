@@ -23,7 +23,12 @@ module MitmTestProxy
       @stubs.each do |stub|
         if stub.match?(env.fetch("REQUEST_URI"))
           log("MitmTestProxy Stubbing request: #{env.fetch('REQUEST_URI')}")
-          return stub.call(env)
+          begin
+            return stub.call(env)
+          rescue => error
+            log("MitmTestProxy Error in stub: #{error.inspect}, #{error.backtrace.join("\n")}")
+            raise
+          end
         end
       end
 
@@ -49,12 +54,15 @@ module MitmTestProxy
 
           request_env = {}
           while !parser.finished?
-            parser.execute(request_env, ssl_socket.readpartial(1024), 0)
+            begin
+              buffer = ssl_socket.readpartial(1024)
+            rescue EOFError
+              break
+            end
+            parser.execute(request_env, buffer, 0)
           end
 
-          if request_env.length == 0
-            raise "request_env is empty"
-          end
+          break if request_env.length == 0
 
           request_env["REQUEST_URI"] = "https://#{hostname}#{request_env.fetch('REQUEST_URI')}"
 
@@ -62,8 +70,11 @@ module MitmTestProxy
 
           write_response_to(ssl_socket, response)
         end
+      rescue Errno::ECONNRESET => error
+        # Client closed the connection
       rescue => error
         response = [500, {}, [error.message]]
+        log("MitmTestProxy Error: #{error.inspect}, #{error.backtrace.join("\n")}")
         write_response_to(ssl_socket, response)
       end
 

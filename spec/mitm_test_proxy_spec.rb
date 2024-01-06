@@ -124,12 +124,33 @@ RSpec.describe MitmTestProxy do
     uri = URI(stub_url)
 
     # Create a Net::HTTP object with proxy settings
-    http = Net::HTTP.new(uri.host, uri.port, mitm_test_proxy.host, mitm_test_proxy.port)
-    response = http.get(uri.request_uri)
+    verify_callback =  lambda do |verify_result, cert|
+      verify_result = OpenSSL::SSL::VERIFY_PEER
+      if cert.issuer.to_s == cert.subject.to_s
+          verify_result = OpenSSL::SSL::VERIFY_NONE
+      end
+      verify_result
+    end
 
-    expect(response.code).to eq("200")
-    expect(response.header["Content-type"]).to eq("text/plain")
-    expect(response.body.length).to eq(File.size(__FILE__))
+    http_options = {
+      verify_mode: OpenSSL::SSL::VERIFY_NONE,
+      verify_callback: verify_callback,
+      use_ssl: true,
+    }
+    Net::HTTP.start(uri.host, uri.port, mitm_test_proxy.host, mitm_test_proxy.port, http_options) do |http|
+      request1 = Net::HTTP::Get.new(uri)
+      response1 = http.request(request1)
+      expect(response1.code).to eq("200")
+      expect(response1.header["Content-type"]).to eq("text/plain")
+      expect(response1.body.length).to eq(File.size(__FILE__))
+
+      request2 = Net::HTTP::Get.new(uri)
+      response2 = http.request(request2)
+      expect(response2.code).to eq("200")
+      expect(response2.header["Content-type"]).to eq("text/plain")
+      expect(response2.body.length).to eq(File.size(__FILE__))
+    end
+    mitm_test_proxy.shutdown
   end
 
   it "can be used for multiple https requests to the same host in the same connection" do
