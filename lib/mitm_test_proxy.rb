@@ -37,6 +37,7 @@ module MitmTestProxy
   class MitmTestProxy
     attr_reader :port
     attr_reader :logs
+    attr_reader :domains_seen
 
     def initialize
       @stubs = []
@@ -46,6 +47,7 @@ module MitmTestProxy
       @logs = StringIO.new
       @log_writer = Puma::LogWriter.new(@logs, @logs)
       @port = nil
+      @domains_seen = Hash.new(0)
 
       init_puma
     end
@@ -63,7 +65,7 @@ module MitmTestProxy
 
       puma_config = Puma::Configuration.new do |user_config, file_config, two|
         user_config.bind "tcp://127.0.0.1:0"
-        user_config.app ProxyRackApp.new(@stubs)
+        user_config.app ProxyRackApp.new(@stubs, @domains_seen)
         user_config.supported_http_methods Puma::Const::SUPPORTED_HTTP_METHODS + ['CONNECT']
         user_config.environment 'development'
       end

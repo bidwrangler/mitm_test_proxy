@@ -231,6 +231,7 @@ RSpec.describe MitmTestProxy do
     response = http.get(uri.request_uri)
     expect(response.body).to eq(base_stubbed_text)
 
+    expect(mitm_test_proxy.domains_seen['www.example.com']).to eq(2)
     mitm_test_proxy.shutdown
   end
 end

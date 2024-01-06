@@ -4,8 +4,9 @@ require 'rack-proxy'
 
 module MitmTestProxy
   class ProxyRackApp
-    def initialize(stubs)
+    def initialize(stubs, domains_seen)
       @stubs = stubs
+      @domains_seen = domains_seen
       @proxy = Rack::Proxy.new(self)
     end
 
@@ -18,6 +19,10 @@ module MitmTestProxy
       if env.fetch('REQUEST_METHOD') == 'CONNECT'
         log("MitmTestProxy handling CONNECT request: #{env.fetch('REQUEST_URI')}")
         return handle_connect(env)
+      end
+
+      URI.parse(env.fetch('REQUEST_URI')).tap do |uri|
+        @domains_seen[uri.host] += 1
       end
 
       @stubs.each do |stub|
