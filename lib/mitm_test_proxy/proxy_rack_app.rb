@@ -27,7 +27,7 @@ module MitmTestProxy
 
       @stubs.each do |stub|
         if stub.match?(env.fetch("REQUEST_URI"))
-          log("MitmTestProxy Stubbing request: #{env.fetch('REQUEST_URI')}")
+          log("MitmTestProxy Stubbing request for #{env.fetch('REQUEST_URI').inspect}, using stub with url #{stub.url.inspect}")
           begin
             return stub.call(env)
           rescue => error

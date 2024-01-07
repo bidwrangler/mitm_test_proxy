@@ -20,6 +20,7 @@ Looks like it's ready, but when I use it in my project I get error about protoco
 - [x] use mutex around certificate creation to stop two requests creating a cert for the same domain
 - [x] allow to remove a stub
 - [x] report what domains where proxyied so far
+- [x] spec that path and query can be in stub url
 
 ## What is this?
 
@@ -49,6 +50,8 @@ mitm_test_proxy.shutdown
 ```
 
 This gem is based on puma.  Some code for TLS certificate creation was copied from puffing-billy.
+
+To better understand what's happening in side of the proxy, you can set the MITM_TEST_PROXY_LOG_REQUESTS env var.
 
 ## Alternatives that where considered
 

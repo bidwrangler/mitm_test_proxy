@@ -234,4 +234,33 @@ RSpec.describe MitmTestProxy do
     expect(mitm_test_proxy.domains_seen['www.example.com']).to eq(2)
     mitm_test_proxy.shutdown
   end
+
+  it "can stub a path and query string too" do
+    mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
+
+    base_stub_url = %r{http://www.example.com/}
+    base_stubbed_text = "I'm not example.com!"
+    mitm_test_proxy.stub(base_stub_url).and_return(text: base_stubbed_text)
+
+    specific_stubbed_text = "I'm a image!"
+    specific_stub_regex = /item_images.*\.(png|jpe?g)(?!.+no-proxy)/
+    specific_stub_url = 'http://www.example.com/item_images/1234.jpg?width=100&height=100'
+    specific_stub_url_no_proxy = 'http://www.example.com/item_images/1234.jpg?no-proxy'
+    mitm_test_proxy.stub(specific_stub_regex, index: 0).and_return(text: specific_stubbed_text)
+
+    mitm_test_proxy.start
+
+    # Target URL
+    uri1 = URI(specific_stub_url)
+
+    http = Net::HTTP.new(uri1.host, uri1.port, mitm_test_proxy.host, mitm_test_proxy.port)
+    response = http.get(uri1.request_uri)
+    expect(response.body).to eq(specific_stubbed_text)
+
+    uri2 = URI(specific_stub_url_no_proxy)
+    response = http.get(uri2.request_uri)
+    expect(response.body).to eq(base_stubbed_text)
+
+    mitm_test_proxy.shutdown
+  end
 end
