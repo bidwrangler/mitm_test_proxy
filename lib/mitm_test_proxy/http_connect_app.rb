@@ -4,8 +4,9 @@ module MitmTestProxy
   # handle CONNECT requests, which are used for HTTPS connections through a proxy, then forward
   # the request to the `child_app`.  Non-CONNECT requests are forwarded to the `child_app` as well.
   class HttpConnectApp
-    def initialize(child_app)
+    def initialize(child_app, context_manager)
       @child_app = child_app
+      @context_manager = context_manager
     end
 
     def log(msg)
@@ -31,7 +32,7 @@ module MitmTestProxy
 
       hostname = env.fetch('REQUEST_URI').split(':').first
       begin
-        ssl_socket = setup_ssl_socket(hostname, client_socket)
+        ssl_socket = @context_manager.setup_ssl_socket(hostname, client_socket)
 
         ssl_socket.accept
 
@@ -81,35 +82,6 @@ module MitmTestProxy
 
       body.each do |chunk|
         socket.write(chunk)
-      end
-    end
-
-    # TODO move to another class
-    def load_certificate_chain(filepath)
-      if OpenSSL::X509::Certificate.method_defined?(:load_file)
-        # ruby 3
-        return OpenSSL::X509::Certificate.load_file(filepath)
-      end
-      # ruby 2
-      certificate_chain = File.read(filepath)
-      certificates = certificate_chain.scan(/-----BEGIN CERTIFICATE-----.+?-----END CERTIFICATE-----/m)
-      certs = certificates.map { |cert| OpenSSL::X509::Certificate.new(cert) }
-    end
-
-    # TODO move to another class
-    def setup_ssl_socket(hostname, client_socket)
-      keys = ::MitmTestProxy.certificate_authority.keys_for(hostname)
-
-      key = OpenSSL::PKey::RSA.new(File.read(keys[:private_key_file]))
-      certs = load_certificate_chain(keys[:cert_chain_file])
-
-      ssl_context = OpenSSL::SSL::SSLContext.new
-      ssl_context.min_version = OpenSSL::SSL::TLS1_2_VERSION
-
-      ssl_context.add_certificate(certs[0], key, certs[1..])
-
-      OpenSSL::SSL::SSLSocket.new(client_socket, ssl_context).tap do |socket|
-        socket.sync_close = true
       end
     end
   end

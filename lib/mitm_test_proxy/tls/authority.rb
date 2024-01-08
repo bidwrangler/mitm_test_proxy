@@ -33,7 +33,6 @@ module MitmTestProxy
       @key = OpenSSL::PKey::RSA.new(2048)
       @cert = generate
       @mutex = Mutex.new
-      @domain_certs = {}
     end
 
     # Write out the private key to file (PEM format) and give back the
@@ -46,29 +45,6 @@ module MitmTestProxy
     # file path.
     def cert_file
       write_file('ca.crt', cert.to_pem)
-    end
-
-    def keys_for(hostname)
-      domain = hostname.split(':').first
-
-      unless @domain_certs.key?(domain)
-        @domain_certs[domain] = create_certificate_for(domain)
-      end
-
-      return @domain_certs[domain]
-    end
-
-    def create_certificate_for(domain)
-      @mutex.synchronize do
-        ca = self.cert
-        cert = ::MitmTestProxy::Certificate.new(domain)
-        chain = ::MitmTestProxy::CertificateChain.new(domain, cert.cert, ca)
-
-        return {
-          private_key_file: cert.key_file,
-          cert_chain_file: chain.file,
-        }
-      end
     end
 
     private

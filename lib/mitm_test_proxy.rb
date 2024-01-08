@@ -5,6 +5,7 @@ require_relative "mitm_test_proxy/tls/certificate_helpers"
 require_relative "mitm_test_proxy/tls/certificate"
 require_relative "mitm_test_proxy/tls/certificate_chain"
 require_relative "mitm_test_proxy/tls/authority"
+require_relative "mitm_test_proxy/tls/context_manager"
 require_relative "mitm_test_proxy/file_streamer"
 require_relative "mitm_test_proxy/http_connect_app"
 require_relative "mitm_test_proxy/domains_seen_app"
@@ -65,6 +66,8 @@ module MitmTestProxy
         @server_shutdown.push(true) if state == :done
       end
 
+      context_manager = ::MitmTestProxy::ContextManager.new
+
       # proxies all request
       proxy_app = Rack::Proxy.new
       # stubs requests
@@ -72,7 +75,7 @@ module MitmTestProxy
       # records domains seen
       domains_seen_app = DomainsSeenApp.new(stub_app, @domains_seen)
       # handles CONNECT requests
-      http_connect_app = HttpConnectApp.new(domains_seen_app)
+      http_connect_app = HttpConnectApp.new(domains_seen_app, context_manager)
 
       puma_config = Puma::Configuration.new do |user_config, file_config, two|
         user_config.bind "tcp://127.0.0.1:0"
