@@ -1,12 +1,14 @@
 # frozen_string_literal: true
 
 require_relative "mitm_test_proxy/version"
-require_relative "mitm_test_proxy/proxy_rack_app"
 require_relative "mitm_test_proxy/tls/certificate_helpers"
 require_relative "mitm_test_proxy/tls/certificate"
 require_relative "mitm_test_proxy/tls/certificate_chain"
 require_relative "mitm_test_proxy/tls/authority"
 require_relative "mitm_test_proxy/file_streamer"
+require_relative "mitm_test_proxy/http_connect_app"
+require_relative "mitm_test_proxy/domains_seen_app"
+require_relative "mitm_test_proxy/stub_app"
 
 require 'puma'
 require 'puma/configuration'
@@ -26,12 +28,12 @@ module MitmTestProxy
     end
   end
 
-  def self.config
-    @config ||= Config.new
-  end
-
   def self.certificate_authority
     @certificate_authority ||= ::MitmTestProxy::Authority.new
+  end
+
+  def self.config
+    @config ||= Config.new
   end
 
   class MitmTestProxy
@@ -63,9 +65,18 @@ module MitmTestProxy
         @server_shutdown.push(true) if state == :done
       end
 
+      # proxies all request
+      proxy_app = Rack::Proxy.new
+      # stubs requests
+      stub_app = StubApp.new(proxy_app, @stubs)
+      # records domains seen
+      domains_seen_app = DomainsSeenApp.new(stub_app, @domains_seen)
+      # handles CONNECT requests
+      http_connect_app = HttpConnectApp.new(domains_seen_app)
+
       puma_config = Puma::Configuration.new do |user_config, file_config, two|
         user_config.bind "tcp://127.0.0.1:0"
-        user_config.app ProxyRackApp.new(@stubs, @domains_seen)
+        user_config.app http_connect_app
         user_config.supported_http_methods Puma::Const::SUPPORTED_HTTP_METHODS + ['CONNECT']
         user_config.environment 'development'
       end

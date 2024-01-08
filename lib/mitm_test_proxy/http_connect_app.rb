@@ -1,13 +1,11 @@
 # frozen_string_literal: true
 
-require 'rack-proxy'
-
 module MitmTestProxy
-  class ProxyRackApp
-    def initialize(stubs, domains_seen)
-      @stubs = stubs
-      @domains_seen = domains_seen
-      @proxy = Rack::Proxy.new(self)
+  # handle CONNECT requests, which are used for HTTPS connections through a proxy, then forward
+  # the request to the `child_app`.  Non-CONNECT requests are forwarded to the `child_app` as well.
+  class HttpConnectApp
+    def initialize(child_app)
+      @child_app = child_app
     end
 
     def log(msg)
@@ -21,24 +19,7 @@ module MitmTestProxy
         return handle_connect(env)
       end
 
-      URI.parse(env.fetch('REQUEST_URI')).tap do |uri|
-        @domains_seen[uri.host] += 1
-      end
-
-      @stubs.each do |stub|
-        if stub.match?(env.fetch("REQUEST_URI"))
-          log("MitmTestProxy Stubbing request for #{env.fetch('REQUEST_URI').inspect}, using stub with url #{stub.url.inspect}")
-          begin
-            return stub.call(env)
-          rescue => error
-            log("MitmTestProxy Error in stub: #{error.inspect}, #{error.backtrace.join("\n")}")
-            raise
-          end
-        end
-      end
-
-      log("MitmTestProxy proxying request: #{env.fetch('REQUEST_URI')}")
-      @proxy.call(env)
+      @child_app.call(env)
     end
 
     private
@@ -71,7 +52,7 @@ module MitmTestProxy
 
           request_env["REQUEST_URI"] = "https://#{hostname}#{request_env.fetch('REQUEST_URI')}"
 
-          response = Rack::Chunked.new(self).call(request_env)
+          response = Rack::Chunked.new(@child_app).call(request_env)
 
           write_response_to(ssl_socket, response)
         end
@@ -103,6 +84,7 @@ module MitmTestProxy
       end
     end
 
+    # TODO move to another class
     def load_certificate_chain(filepath)
       if OpenSSL::X509::Certificate.method_defined?(:load_file)
         # ruby 3
@@ -114,6 +96,7 @@ module MitmTestProxy
       certs = certificates.map { |cert| OpenSSL::X509::Certificate.new(cert) }
     end
 
+    # TODO move to another class
     def setup_ssl_socket(hostname, client_socket)
       keys = ::MitmTestProxy.certificate_authority.keys_for(hostname)
 
