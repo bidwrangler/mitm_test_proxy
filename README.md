@@ -2,25 +2,7 @@
 
 ## status
 
-Looks like it's ready, but when I use it in my project I get error about protocol versions.
-
-- [x] test the most recent release of puffing-billy/em doesn't fix the bug
-(yes it still does)
-- [x] handle requests to http sites
-- [x] use list of string, string pairs to replace the response for http
-- [x] use list of regex, proc pairs to rewrite requests for http
-- [x] use list of regex, proc pairs to rewrite requests for https
-  - [x] handle CONNECT requests
-  - [x] create self signed certificates on demand
-  - [x] trigger creation on TLS handshake
-  - [x] parse http request and pass to rack-proxy
-- [x] write test that uses curl to proxy to <https://httpbin.org/get> and fix
-- [ ] write test that uses chrome to proxy to something https
-- [x] write spec that makes multiple https requests to the same host
-- [x] use mutex around certificate creation to stop two requests creating a cert for the same domain
-- [x] allow to remove a stub
-- [x] report what domains where proxyied so far
-- [x] spec that path and query can be in stub url
+Ready to be used.  Works well in at least one Rails app.
 
 ## What is this?
 
@@ -28,12 +10,15 @@ This allows you to run a Man-In-The-Middle proxy that you will configure a
 test browser (perhaps with Capybara) to use.  You will be able to modify
 responses from 3rd parties and assert that requests where made.
 
+Your browser will need to be set to accept self signed TLS certificates.
+
 ```ruby
 # all requests not on allowlist or stubbed will return with an
 # empty body
 mitm_test_proxy = MitmTestProxy.new
-# intercept a request to a specific url and return what we want
+# intercept a request to a specific url and return what we want:
 mitm_test_proxy.stub('http://www.google.com/').and_return(text: "I'm not Google!")
+# a stub can be a rack app:
 mitm_test_proxy.stub('https://example.com/').and_return(Proc.new {|env| 
   [200, {'content-type' => 'text/plain'}, []]
 })
@@ -73,11 +58,3 @@ Have not tried it.  Appears to be dead.  Built on an old version of WEBrick, whi
 ### [evil-proxy](https://github.com/bbtfr/evil-proxy)
 
 Have not tried it.  Appears to be dead. Built on an old version of WEBrick, which has changed in later versions.
-
-## notes
-
-- maybe use WEBrick and get full hijack with this: <https://projects.theforeman.org/issues/26958>
-- <https://mitmproxy.org/> could we use python?
-- <https://gist.github.com/xaviershay/1470160>
-- <https://www.johnnunemaker.com/ruby-rack-background-thread/>
-- <https://stackoverflow.com/questions/13476639/ruby-mitm-proxy>
