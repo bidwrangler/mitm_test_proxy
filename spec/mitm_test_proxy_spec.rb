@@ -5,6 +5,11 @@ require 'openssl'
 require 'open3'
 
 RSpec.describe MitmTestProxy do
+  after do
+    # Ensure proxy is shut down after each test to prevent resource leaks
+    @mitm_test_proxy&.shutdown
+  end
+
   it "has a version number" do
     expect(MitmTestProxy::VERSION).not_to be nil
   end
@@ -12,50 +17,46 @@ RSpec.describe MitmTestProxy do
   it "can stub a http site" do
     stubbed_text = "I'm not example.com!"
     stub_url = 'http://www.example.com/'
-    mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
-    mitm_test_proxy.stub(stub_url).and_return(text: stubbed_text)
-    mitm_test_proxy.start
+    @mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
+    @mitm_test_proxy.stub(stub_url).and_return(text: stubbed_text)
+    @mitm_test_proxy.start
 
     # Target URL
     uri = URI(stub_url)
 
     # Create a Net::HTTP object with proxy settings
-    expect(mitm_test_proxy.port).to be > 0
+    expect(@mitm_test_proxy.port).to be > 0
 
-    http = Net::HTTP.new(uri.host, uri.port, mitm_test_proxy.host, mitm_test_proxy.port)
+    http = Net::HTTP.new(uri.host, uri.port, @mitm_test_proxy.host, @mitm_test_proxy.port)
     response = http.get(uri.request_uri)
 
     expect(response.body).to eq(stubbed_text)
-
-    mitm_test_proxy.shutdown
   end
 
   it "can stub a https site" do
     stubbed_text = "I'm not https example.com!"
     stub_url = 'https://www.example.com/'
-    mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
-    mitm_test_proxy.stub(stub_url).and_return(text: stubbed_text)
-    mitm_test_proxy.start
+    @mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
+    @mitm_test_proxy.stub(stub_url).and_return(text: stubbed_text)
+    @mitm_test_proxy.start
 
     # Target URL
     uri = URI(stub_url)
 
     # Create a Net::HTTP object with proxy settings
-    http = Net::HTTP.new(uri.host, uri.port, mitm_test_proxy.host, mitm_test_proxy.port)
+    http = Net::HTTP.new(uri.host, uri.port, @mitm_test_proxy.host, @mitm_test_proxy.port)
     http.use_ssl = uri.scheme == 'https'
     http.verify_mode = OpenSSL::SSL::VERIFY_NONE
     begin
       response = http.get(uri.request_uri)
     rescue => e
       puts "logs:"
-      puts mitm_test_proxy.logs.string
+      puts @mitm_test_proxy.logs.string
       raise
     end
 
     expect(response.code).to eq("200")
     expect(response.body).to eq(stubbed_text)
-
-    mitm_test_proxy.shutdown
   end
 
   # just like puffing-billy
@@ -63,21 +64,21 @@ RSpec.describe MitmTestProxy do
     stub_url = 'https://www.example.com/hello.txt'
     stubbed_text = "hello world"
 
-    mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
-    mitm_test_proxy.stub(/hello.txt/).and_return(Proc.new { |env|
+    @mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
+    @mitm_test_proxy.stub(/hello.txt/).and_return(Proc.new { |env|
       headers = {
         "Content-type" => "text/plain",
         "Access-Control-Allow-Origin" => "*",
       }
       [200, headers, [stubbed_text]]
     })
-    mitm_test_proxy.start
+    @mitm_test_proxy.start
 
     # Target URL
     uri = URI(stub_url)
 
     # Create a Net::HTTP object with proxy settings
-    http = Net::HTTP.new(uri.host, uri.port, mitm_test_proxy.host, mitm_test_proxy.port)
+    http = Net::HTTP.new(uri.host, uri.port, @mitm_test_proxy.host, @mitm_test_proxy.port)
     response = http.get(uri.request_uri)
 
     expect(response.code).to eq("200")
@@ -91,15 +92,15 @@ RSpec.describe MitmTestProxy do
     stub_url = 'https://www.example.com/hello.txt'
     stubbed_text = "hello world"
 
-    mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
-    mitm_test_proxy.start
+    @mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
+    @mitm_test_proxy.start
     allow_any_instance_of(Rack::Proxy).to receive(:call).and_raise("error while proxying")
 
     # Target URL
     uri = URI(stub_url)
 
     # Create a Net::HTTP object with proxy settings
-    http = Net::HTTP.new(uri.host, uri.port, mitm_test_proxy.host, mitm_test_proxy.port)
+    http = Net::HTTP.new(uri.host, uri.port, @mitm_test_proxy.host, @mitm_test_proxy.port)
     response = http.get(uri.request_uri)
 
     expect(response.code).to eq("500")
@@ -111,14 +112,14 @@ RSpec.describe MitmTestProxy do
   it "can stub and stream a file" do
     stub_url = 'https://www.example.com/thisfile.rb'
 
-    mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
-    mitm_test_proxy.stub(/thisfile.rb/).and_return(Proc.new { |env|
+    @mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
+    @mitm_test_proxy.stub(/thisfile.rb/).and_return(Proc.new { |env|
       headers = {
         "Content-type" => "text/plain",
       }
       [200, headers, MitmTestProxy::FileStreamer.new(__FILE__)]
     })
-    mitm_test_proxy.start
+    @mitm_test_proxy.start
 
     # Target URL
     uri = URI(stub_url)
@@ -137,7 +138,7 @@ RSpec.describe MitmTestProxy do
       verify_callback: verify_callback,
       use_ssl: true,
     }
-    Net::HTTP.start(uri.host, uri.port, mitm_test_proxy.host, mitm_test_proxy.port, http_options) do |http|
+    Net::HTTP.start(uri.host, uri.port, @mitm_test_proxy.host, @mitm_test_proxy.port, http_options) do |http|
       request1 = Net::HTTP::Get.new(uri)
       response1 = http.request(request1)
       expect(response1.code).to eq("200")
@@ -150,15 +151,14 @@ RSpec.describe MitmTestProxy do
       expect(response2.header["Content-type"]).to eq("text/plain")
       expect(response2.body.length).to eq(File.size(__FILE__))
     end
-    mitm_test_proxy.shutdown
   end
 
   it "can be used for multiple https requests to the same host in the same connection" do
     stubbed_text = "I'm not https example.com!"
     stub_url = 'https://www.example.com/'
-    mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
-    mitm_test_proxy.stub(stub_url).and_return(text: stubbed_text)
-    mitm_test_proxy.start
+    @mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
+    @mitm_test_proxy.stub(stub_url).and_return(text: stubbed_text)
+    @mitm_test_proxy.start
 
     # Target URL
     uri = URI(stub_url)
@@ -176,7 +176,7 @@ RSpec.describe MitmTestProxy do
       verify_callback: verify_callback,
       use_ssl: true,
     }
-    Net::HTTP.start(uri.host, uri.port, mitm_test_proxy.host, mitm_test_proxy.port, http_options) do |http|
+    Net::HTTP.start(uri.host, uri.port, @mitm_test_proxy.host, @mitm_test_proxy.port, http_options) do |http|
       request1 = Net::HTTP::Get.new(uri)
       response1 = http.request(request1)
       expect(response1.code).to eq("200")
@@ -187,13 +187,11 @@ RSpec.describe MitmTestProxy do
       expect(response2.code).to eq("200")
       expect(response2.body).to eq(stubbed_text)
     end
-
-    mitm_test_proxy.shutdown
   end
 
   it "can be used with curl https" do
-    mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
-    mitm_test_proxy.start
+    @mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
+    @mitm_test_proxy.start
 
     command = "curl --insecure --proxy http://#{mitm_test_proxy.host}:#{mitm_test_proxy.port} https://httpbin.org/get"
 
@@ -208,59 +206,56 @@ RSpec.describe MitmTestProxy do
   end
 
   it "can remove a stub" do
-    mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
+    @mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
 
     base_stub_url = %r{http://www.example.com/}
     base_stubbed_text = "I'm not example.com!"
-    mitm_test_proxy.stub(base_stub_url).and_return(text: base_stubbed_text)
+    @mitm_test_proxy.stub(base_stub_url).and_return(text: base_stubbed_text)
 
     specific_stubbed_text = "I'm a goat!"
     specific_stub_url = 'http://www.example.com/goat.txt'
-    mitm_test_proxy.stub(specific_stub_url, index: 0).and_return(text: specific_stubbed_text)
+    @mitm_test_proxy.stub(specific_stub_url, index: 0).and_return(text: specific_stubbed_text)
 
-    mitm_test_proxy.start
+    @mitm_test_proxy.start
 
     # Target URL
     uri = URI(specific_stub_url)
 
-    http = Net::HTTP.new(uri.host, uri.port, mitm_test_proxy.host, mitm_test_proxy.port)
+    http = Net::HTTP.new(uri.host, uri.port, @mitm_test_proxy.host, @mitm_test_proxy.port)
     response = http.get(uri.request_uri)
     expect(response.body).to eq(specific_stubbed_text)
 
-    mitm_test_proxy.remove_stub(specific_stub_url)
+    @mitm_test_proxy.remove_stub(specific_stub_url)
     response = http.get(uri.request_uri)
     expect(response.body).to eq(base_stubbed_text)
 
-    expect(mitm_test_proxy.domains_seen['www.example.com']).to eq(2)
-    mitm_test_proxy.shutdown
+    expect(@mitm_test_proxy.domains_seen['www.example.com']).to eq(2)
   end
 
   it "can stub a path and query string too" do
-    mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
+    @mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
 
     base_stub_url = %r{http://www.example.com/}
     base_stubbed_text = "I'm not example.com!"
-    mitm_test_proxy.stub(base_stub_url).and_return(text: base_stubbed_text)
+    @mitm_test_proxy.stub(base_stub_url).and_return(text: base_stubbed_text)
 
     specific_stubbed_text = "I'm a image!"
     specific_stub_regex = /item_images.*\.(png|jpe?g)(?!.+no-proxy)/
     specific_stub_url = 'http://www.example.com/item_images/1234.jpg?width=100&height=100'
     specific_stub_url_no_proxy = 'http://www.example.com/item_images/1234.jpg?no-proxy'
-    mitm_test_proxy.stub(specific_stub_regex, index: 0).and_return(text: specific_stubbed_text)
+    @mitm_test_proxy.stub(specific_stub_regex, index: 0).and_return(text: specific_stubbed_text)
 
-    mitm_test_proxy.start
+    @mitm_test_proxy.start
 
     # Target URL
     uri1 = URI(specific_stub_url)
 
-    http = Net::HTTP.new(uri1.host, uri1.port, mitm_test_proxy.host, mitm_test_proxy.port)
+    http = Net::HTTP.new(uri1.host, uri1.port, @mitm_test_proxy.host, @mitm_test_proxy.port)
     response = http.get(uri1.request_uri)
     expect(response.body).to eq(specific_stubbed_text)
 
     uri2 = URI(specific_stub_url_no_proxy)
     response = http.get(uri2.request_uri)
     expect(response.body).to eq(base_stubbed_text)
-
-    mitm_test_proxy.shutdown
   end
 end
