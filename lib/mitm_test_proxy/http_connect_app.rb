@@ -61,7 +61,15 @@ module MitmTestProxy
         if request_env.length > 0
           request_env["REQUEST_URI"] = "https://#{hostname}#{request_env.fetch('REQUEST_URI')}"
 
-          response = @child_app.call(request_env)
+          # Get response from child app
+          status, headers, body = @child_app.call(request_env)
+          
+          # Ensure body is properly enumerable for streaming
+          if body.respond_to?(:each)
+            response = [status, headers, body]
+          else
+            response = [status, headers, [body.to_s]]
+          end
 
           write_response_to(ssl_socket, response)
         end
@@ -70,6 +78,7 @@ module MitmTestProxy
         ssl_socket.close rescue nil
       rescue Errno::ECONNRESET => error
         # Client closed the connection
+        log("MitmTestProxy Client disconnected: #{hostname}")
       rescue => error
         response = [500, {}, [error.message]]
         log("MitmTestProxy Error: #{error.inspect}, #{error.backtrace.join("\n")}")
@@ -90,14 +99,25 @@ module MitmTestProxy
       # Format the status line
       http_status_line = "HTTP/1.1 #{status} #{Rack::Utils::HTTP_STATUS_CODES[status]}\r\n"
 
-      socket.write(http_status_line)
-      # Format the headers
-      http_headers = headers.map { |key, value| "#{key}: #{value}\r\n" }.join
-      socket.write(http_headers)
-      socket.write("\r\n")
+      begin
+        # Set socket write timeout to prevent indefinite blocking
+        socket.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, [5, 0].pack("l_2")) if socket.respond_to?(:setsockopt)
+        
+        socket.write(http_status_line)
+        # Format the headers
+        http_headers = headers.map { |key, value| "#{key}: #{value}\r\n" }.join
+        socket.write(http_headers)
+        socket.write("\r\n")
 
-      body.each do |chunk|
-        socket.write(chunk)
+        body.each do |chunk|
+          socket.write(chunk)
+        end
+      rescue Errno::EPIPE, Errno::ECONNRESET, IO::TimeoutError => e
+        log("MitmTestProxy Write error (client may have disconnected): #{e.message}")
+        # Don't re-raise, just log and continue
+      rescue => e
+        log("MitmTestProxy Unexpected write error: #{e.message}")
+        raise
       end
     end
   end
