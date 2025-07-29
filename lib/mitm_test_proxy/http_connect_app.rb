@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'timeout'
+
 module MitmTestProxy
   # handle CONNECT requests, which are used for HTTPS connections through a proxy, then forward
   # the request to the `child_app`.  Non-CONNECT requests are forwarded to the `child_app` as well.
@@ -36,33 +38,74 @@ module MitmTestProxy
 
         ssl_socket.accept
 
-        loop do
-          parser = Puma::HttpParser.new
+        # Handle exactly one HTTP request per SSL connection
+        # Don't try to handle multiple requests on the same connection
+        parser = Puma::HttpParser.new
 
-          request_env = {}
-          while !parser.finished?
-            begin
+        request_env = {}
+        while !parser.finished?
+          begin
+            # Use IO.select with timeout to prevent infinite blocking
+            if IO.select([ssl_socket], nil, nil, 10)  # 10 second timeout
               buffer = ssl_socket.readpartial(1024)
-            rescue EOFError
+            else
+              # Timeout waiting for data - break out of parser loop
               break
             end
-            parser.execute(request_env, buffer, 0)
+          rescue EOFError
+            break
+          rescue IO::WaitReadable
+            retry
           end
+          parser.execute(request_env, buffer, 0)
+        end
 
-          break if request_env.length == 0
-
+        if request_env.length > 0
           request_env["REQUEST_URI"] = "https://#{hostname}#{request_env.fetch('REQUEST_URI')}"
 
-          response = Rack::Chunked.new(@child_app).call(request_env)
+          # Get response from child app
+          status, headers, body = @child_app.call(request_env)
+          
+          # Ensure body is properly enumerable for streaming
+          if body.respond_to?(:each)
+            response = [status, headers, body]
+          else
+            response = [status, headers, [body.to_s]]
+          end
 
           write_response_to(ssl_socket, response)
         end
+        
+        # Explicitly close the SSL socket to signal end of connection
+        begin
+          ssl_socket.close
+        rescue => e
+          log("MitmTestProxy Warning: Failed to close SSL socket: #{e.message}")
+        end
       rescue Errno::ECONNRESET => error
         # Client closed the connection
+        log("MitmTestProxy Client disconnected: #{hostname}")
       rescue => error
         response = [500, {}, [error.message]]
         log("MitmTestProxy Error: #{error.inspect}, #{error.backtrace.join("\n")}")
-        write_response_to(ssl_socket, response)
+        write_response_to(ssl_socket, response) rescue nil
+        begin
+          ssl_socket.close
+        rescue => e
+          log("MitmTestProxy Warning: Failed to close SSL socket during error handling: #{e.message}")
+        end
+      ensure
+        # Always ensure sockets are closed
+        begin
+          ssl_socket.close if ssl_socket
+        rescue => e
+          log("MitmTestProxy Warning: Failed to close SSL socket in ensure block: #{e.message}")
+        end
+        begin
+          client_socket.close if client_socket
+        rescue => e
+          log("MitmTestProxy Warning: Failed to close client socket in ensure block: #{e.message}")
+        end
       end
 
       [200, {}, []] # Return a successful response
@@ -74,14 +117,25 @@ module MitmTestProxy
       # Format the status line
       http_status_line = "HTTP/1.1 #{status} #{Rack::Utils::HTTP_STATUS_CODES[status]}\r\n"
 
-      socket.write(http_status_line)
-      # Format the headers
-      http_headers = headers.map { |key, value| "#{key}: #{value}\r\n" }.join
-      socket.write(http_headers)
-      socket.write("\r\n")
+      begin
+        # Set socket write timeout to prevent indefinite blocking
+        socket.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, [5, 0].pack("l_2")) if socket.respond_to?(:setsockopt)
+        
+        socket.write(http_status_line)
+        # Format the headers
+        http_headers = headers.map { |key, value| "#{key}: #{value}\r\n" }.join
+        socket.write(http_headers)
+        socket.write("\r\n")
 
-      body.each do |chunk|
-        socket.write(chunk)
+        body.each do |chunk|
+          socket.write(chunk)
+        end
+      rescue Errno::EPIPE, Errno::ECONNRESET, Timeout::Error => e
+        log("MitmTestProxy Write error (client may have disconnected): #{e.message}")
+        # Don't re-raise, just log and continue
+      rescue => e
+        log("MitmTestProxy Unexpected write error: #{e.message}")
+        raise
       end
     end
   end

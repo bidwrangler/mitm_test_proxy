@@ -66,7 +66,7 @@ module MitmTestProxy
         @server_shutdown.push(true) if state == :done
       end
 
-      context_manager = ::MitmTestProxy::ContextManager.new
+      @context_manager = ::MitmTestProxy::ContextManager.new
 
       # proxies all request
       proxy_app = Rack::Proxy.new
@@ -75,13 +75,21 @@ module MitmTestProxy
       # records domains seen
       domains_seen_app = DomainsSeenApp.new(stub_app, @domains_seen)
       # handles CONNECT requests
-      http_connect_app = HttpConnectApp.new(domains_seen_app, context_manager)
+      http_connect_app = HttpConnectApp.new(domains_seen_app, @context_manager)
 
       puma_config = Puma::Configuration.new do |user_config, file_config, two|
         user_config.bind "tcp://127.0.0.1:0"
         user_config.app http_connect_app
         user_config.supported_http_methods Puma::Const::SUPPORTED_HTTP_METHODS + ['CONNECT']
         user_config.environment 'development'
+        
+        # Configure thread pool for better concurrency
+        # This allows multiple concurrent requests instead of single-threaded processing
+        user_config.threads 1, 16  # min 1 thread, max 16 threads
+        
+        # Set connection timeouts to prevent resource exhaustion
+        user_config.first_data_timeout 30
+        user_config.persistent_timeout 20
       end
 
       @launcher = Puma::Launcher.new(
@@ -107,6 +115,9 @@ module MitmTestProxy
       if @launcher_thread
         @launcher_thread.join
       end
+      
+      # Clean up certificate files
+      @context_manager&.cleanup_certificates
     end
 
     def stub(stub_url, index: -1)
@@ -143,7 +154,7 @@ module MitmTestProxy
     end
 
     def call(env)
-      if @response.kind_of?(Hash) && response.key?(:text)
+      if @response.kind_of?(Hash) && @response.key?(:text)
         return [200, {}, [@response[:text]]]
       end
       if @response.kind_of?(Proc)
