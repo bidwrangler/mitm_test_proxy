@@ -82,6 +82,14 @@ module MitmTestProxy
         user_config.app http_connect_app
         user_config.supported_http_methods Puma::Const::SUPPORTED_HTTP_METHODS + ['CONNECT']
         user_config.environment 'development'
+        
+        # Configure thread pool for better concurrency
+        # This allows multiple concurrent requests instead of single-threaded processing
+        user_config.threads 1, 16  # min 1 thread, max 16 threads
+        
+        # Set connection timeouts to prevent resource exhaustion
+        user_config.first_data_timeout 30
+        user_config.persistent_timeout 20
       end
 
       @launcher = Puma::Launcher.new(
