@@ -66,7 +66,7 @@ module MitmTestProxy
         @server_shutdown.push(true) if state == :done
       end
 
-      context_manager = ::MitmTestProxy::ContextManager.new
+      @context_manager = ::MitmTestProxy::ContextManager.new
 
       # proxies all request
       proxy_app = Rack::Proxy.new
@@ -75,7 +75,7 @@ module MitmTestProxy
       # records domains seen
       domains_seen_app = DomainsSeenApp.new(stub_app, @domains_seen)
       # handles CONNECT requests
-      http_connect_app = HttpConnectApp.new(domains_seen_app, context_manager)
+      http_connect_app = HttpConnectApp.new(domains_seen_app, @context_manager)
 
       puma_config = Puma::Configuration.new do |user_config, file_config, two|
         user_config.bind "tcp://127.0.0.1:0"
@@ -107,6 +107,9 @@ module MitmTestProxy
       if @launcher_thread
         @launcher_thread.join
       end
+      
+      # Clean up certificate files
+      @context_manager&.cleanup_certificates
     end
 
     def stub(stub_url, index: -1)

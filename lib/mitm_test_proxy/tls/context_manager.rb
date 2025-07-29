@@ -4,6 +4,7 @@ module MitmTestProxy
     def initialize
       @domain_certs = {}
       @mutex = Mutex.new
+      @cleanup_scheduled = false
     end
 
     def load_certificate_chain(filepath)
@@ -51,10 +52,43 @@ module MitmTestProxy
         cert = ::MitmTestProxy::Certificate.new(domain)
         chain = ::MitmTestProxy::CertificateChain.new(domain, cert.cert, ca)
 
-        return {
+        result = {
           private_key_file: cert.key_file,
           cert_chain_file: chain.file,
         }
+        
+        # Schedule cleanup if not already done
+        schedule_cleanup unless @cleanup_scheduled
+        
+        return result
+      end
+    end
+
+    # Clean up certificate files and reset domain certs cache
+    def cleanup_certificates
+      @mutex.synchronize do
+        @domain_certs.each do |domain, cert_info|
+          begin
+            File.unlink(cert_info[:private_key_file]) if File.exist?(cert_info[:private_key_file])
+            File.unlink(cert_info[:cert_chain_file]) if File.exist?(cert_info[:cert_chain_file])
+          rescue => e
+            # Ignore cleanup errors
+          end
+        end
+        @domain_certs.clear
+        @cleanup_scheduled = false
+      end
+    end
+
+    private
+
+    def schedule_cleanup
+      return if @cleanup_scheduled
+      @cleanup_scheduled = true
+      
+      # Schedule cleanup at process exit
+      at_exit do
+        cleanup_certificates
       end
     end
   end
