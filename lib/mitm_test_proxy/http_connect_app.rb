@@ -62,7 +62,15 @@ module MitmTestProxy
 
           request_env["REQUEST_URI"] = "https://#{hostname}#{request_env.fetch('REQUEST_URI')}"
 
-          response = Rack::Chunked.new(@child_app).call(request_env)
+          # Get response from child app
+          status, headers, body = @child_app.call(request_env)
+          
+          # Ensure body is properly enumerable for streaming
+          if body.respond_to?(:each)
+            response = [status, headers, body]
+          else
+            response = [status, headers, [body.to_s]]
+          end
 
           write_response_to(ssl_socket, response)
         end

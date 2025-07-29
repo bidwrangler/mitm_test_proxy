@@ -38,30 +38,30 @@ module MitmTestProxy
     def keys_for(hostname)
       domain = hostname.split(':').first
 
-      unless @domain_certs.key?(domain)
-        @domain_certs[domain] = create_certificate_for(domain)
-      end
+      @mutex.synchronize do
+        unless @domain_certs.key?(domain)
+          @domain_certs[domain] = create_certificate_for(domain)
+        end
 
-      return @domain_certs[domain]
+        return @domain_certs[domain]
+      end
     end
 
-    # create certificate for domain, threadsafe
+    # create certificate for domain (caller must hold @mutex)
     def create_certificate_for(domain)
-      @mutex.synchronize do
-        ca = ::MitmTestProxy.certificate_authority.cert
-        cert = ::MitmTestProxy::Certificate.new(domain)
-        chain = ::MitmTestProxy::CertificateChain.new(domain, cert.cert, ca)
+      ca = ::MitmTestProxy.certificate_authority.cert
+      cert = ::MitmTestProxy::Certificate.new(domain)
+      chain = ::MitmTestProxy::CertificateChain.new(domain, cert.cert, ca)
 
-        result = {
-          private_key_file: cert.key_file,
-          cert_chain_file: chain.file,
-        }
-        
-        # Schedule cleanup if not already done
-        schedule_cleanup unless @cleanup_scheduled
-        
-        return result
-      end
+      result = {
+        private_key_file: cert.key_file,
+        cert_chain_file: chain.file,
+      }
+      
+      # Schedule cleanup if not already done
+      schedule_cleanup unless @cleanup_scheduled
+      
+      return result
     end
 
     # Clean up certificate files and reset domain certs cache

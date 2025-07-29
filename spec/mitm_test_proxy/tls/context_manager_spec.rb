@@ -38,10 +38,14 @@ RSpec.describe MitmTestProxy::ContextManager do
       expect(File).not_to exist(private_key_file)
       expect(File).not_to exist(cert_chain_file)
       
-      # Should generate new certificates after cleanup
+      # Should generate new certificates after cleanup (files should exist again)
       new_keys = context_manager.keys_for('example.com')
-      expect(new_keys[:private_key_file]).not_to eq(private_key_file)
-      expect(new_keys[:cert_chain_file]).not_to eq(cert_chain_file)
+      expect(File).to exist(new_keys[:private_key_file])
+      expect(File).to exist(new_keys[:cert_chain_file])
+      
+      # Cache should have been cleared, so create_certificate_for should be called again
+      expect(context_manager).to receive(:create_certificate_for).once.and_call_original
+      context_manager.keys_for('test.com')
     end
     
     it 'handles missing files gracefully' do

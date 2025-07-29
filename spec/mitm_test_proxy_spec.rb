@@ -36,6 +36,8 @@ RSpec.describe MitmTestProxy do
   it "can stub a https site" do
     stubbed_text = "I'm not https example.com!"
     stub_url = 'https://www.example.com/'
+    # Enable logging for debugging
+    ENV['MITM_TEST_PROXY_LOG_REQUESTS'] = '1'
     @mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
     @mitm_test_proxy.stub(stub_url).and_return(text: stubbed_text)
     @mitm_test_proxy.start
@@ -193,7 +195,7 @@ RSpec.describe MitmTestProxy do
     @mitm_test_proxy = MitmTestProxy::MitmTestProxy.new
     @mitm_test_proxy.start
 
-    command = "curl --insecure --proxy http://#{mitm_test_proxy.host}:#{mitm_test_proxy.port} https://httpbin.org/get"
+    command = "curl --insecure --proxy http://#{@mitm_test_proxy.host}:#{@mitm_test_proxy.port} https://httpbin.org/get"
 
     stdout_str, stderr_str, status = Open3.capture3(command)
     if status.exitstatus != 0

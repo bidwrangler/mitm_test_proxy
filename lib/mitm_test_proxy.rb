@@ -154,7 +154,7 @@ module MitmTestProxy
     end
 
     def call(env)
-      if @response.kind_of?(Hash) && response.key?(:text)
+      if @response.kind_of?(Hash) && @response.key?(:text)
         return [200, {}, [@response[:text]]]
       end
       if @response.kind_of?(Proc)
