@@ -77,7 +77,11 @@ module MitmTestProxy
         end
         
         # Explicitly close the SSL socket to signal end of connection
-        ssl_socket.close rescue nil
+        begin
+          ssl_socket.close
+        rescue => e
+          log("MitmTestProxy Warning: Failed to close SSL socket: #{e.message}")
+        end
       rescue Errno::ECONNRESET => error
         # Client closed the connection
         log("MitmTestProxy Client disconnected: #{hostname}")
@@ -85,11 +89,23 @@ module MitmTestProxy
         response = [500, {}, [error.message]]
         log("MitmTestProxy Error: #{error.inspect}, #{error.backtrace.join("\n")}")
         write_response_to(ssl_socket, response) rescue nil
-        ssl_socket.close rescue nil
+        begin
+          ssl_socket.close
+        rescue => e
+          log("MitmTestProxy Warning: Failed to close SSL socket during error handling: #{e.message}")
+        end
       ensure
         # Always ensure sockets are closed
-        ssl_socket.close rescue nil
-        client_socket.close rescue nil
+        begin
+          ssl_socket.close if ssl_socket
+        rescue => e
+          log("MitmTestProxy Warning: Failed to close SSL socket in ensure block: #{e.message}")
+        end
+        begin
+          client_socket.close if client_socket
+        rescue => e
+          log("MitmTestProxy Warning: Failed to close client socket in ensure block: #{e.message}")
+        end
       end
 
       [200, {}, []] # Return a successful response
