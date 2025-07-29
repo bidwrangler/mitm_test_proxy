@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'timeout'
+
 module MitmTestProxy
   # handle CONNECT requests, which are used for HTTPS connections through a proxy, then forward
   # the request to the `child_app`.  Non-CONNECT requests are forwarded to the `child_app` as well.
@@ -112,7 +114,7 @@ module MitmTestProxy
         body.each do |chunk|
           socket.write(chunk)
         end
-      rescue Errno::EPIPE, Errno::ECONNRESET, IO::TimeoutError => e
+      rescue Errno::EPIPE, Errno::ECONNRESET, Timeout::Error => e
         log("MitmTestProxy Write error (client may have disconnected): #{e.message}")
         # Don't re-raise, just log and continue
       rescue => e
